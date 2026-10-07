@@ -1,0 +1,191 @@
+--!strict
+local ContentProvider = game:GetService("ContentProvider")
+local Lighting = game:GetService("Lighting")
+local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
+local TweenService = game:GetService("TweenService")
+local Workspace = game:GetService("Workspace")
+
+local camera = Workspace.CurrentCamera
+
+local Rumble = Instance.new("Sound")
+Rumble.Name = "Rumble"
+Rumble.SoundId = "rbxassetid://923073285"
+Rumble.Volume = 1
+Rumble.Parent = SoundService
+
+local screams2 = Instance.new("Sound")
+screams2.Name = "screams2"
+screams2.SoundId = "rbxassetid://9125714014"
+screams2.PlaybackSpeed = 0.7
+screams2.Volume = 1
+
+local eqEffect = Instance.new("EqualizerSoundEffect")
+eqEffect.LowGain = 0
+eqEffect.MidGain = 0
+eqEffect.HighGain = 0
+eqEffect.Parent = screams2
+
+screams2.Parent = SoundService
+
+local MoreScreaming = Instance.new("Sound")
+MoreScreaming.Name = "MoreScreaming"
+MoreScreaming.SoundId = "rbxassetid://9125713856"
+MoreScreaming.PlaybackSpeed = 1.4
+MoreScreaming.Volume = 1
+MoreScreaming.Parent = SoundService
+
+local FarMoreScreaming = Instance.new("Sound")
+FarMoreScreaming.Name = "Far More screaming"
+FarMoreScreaming.SoundId = "rbxassetid://9125713633"
+FarMoreScreaming.PlaybackSpeed = 2
+FarMoreScreaming.Volume = 1
+
+local pitchEffect = Instance.new("PitchShiftSoundEffect")
+pitchEffect.Octave = 0.5
+pitchEffect.Parent = FarMoreScreaming
+
+FarMoreScreaming.Parent = SoundService
+
+local RumblingAgain = Instance.new("Sound")
+RumblingAgain.Name = "Rumbling, again"
+RumblingAgain.SoundId = "rbxassetid://128063443398869"
+RumblingAgain.PlaybackSpeed = 0.6
+RumblingAgain.Volume = 1
+
+local pitch1 = Instance.new("PitchShiftSoundEffect")
+pitch1.Octave = 0.5
+pitch1.Parent = RumblingAgain
+
+local pitch2 = Instance.new("PitchShiftSoundEffect")
+pitch2.Octave = 0.65
+pitch2.Parent = RumblingAgain
+
+local pitch3 = Instance.new("PitchShiftSoundEffect")
+pitch3.Octave = 0.8
+pitch3.Parent = RumblingAgain
+
+RumblingAgain.Parent = SoundService
+
+local allSounds = { Rumble, screams2, MoreScreaming, FarMoreScreaming, RumblingAgain }
+
+task.spawn(function()
+	pcall(function()
+		ContentProvider:PreloadAsync(allSounds)
+	end)
+
+	for _, s in ipairs(allSounds) do
+		if not s.IsLoaded then
+			s.Loaded:Wait()
+		end
+	end
+
+	task.delay(1, function()
+		screams2:Play()
+	end)
+
+	task.delay(2, function()
+		MoreScreaming:Play()
+	end)
+
+	task.delay(3, function()
+		RumblingAgain:Play()
+	end)
+
+	task.delay(4, function()
+		FarMoreScreaming:Play()
+	end)
+end)
+
+local colorCorrection = Instance.new("ColorCorrectionEffect")
+colorCorrection.Name = "NauseaColorCorrection"
+colorCorrection.TintColor = Color3.fromRGB(0, 100, 180)
+colorCorrection.Brightness = -1
+colorCorrection.Contrast = 0.2
+colorCorrection.Saturation = 0.5
+colorCorrection.Parent = Lighting
+
+local NAUSEA_SPEED = 2.0
+local ROLL_ANGLE = 4.5
+local FOV_AMPLITUDE = 6
+local DEFAULT_FOV = 70
+
+local timeElapsed = 0
+local intensity = 1.0
+local isFading = false
+local renderConn: RBXScriptConnection? = nil
+
+renderConn = RunService.RenderStepped:Connect(function(deltaTime: number)
+	timeElapsed += deltaTime * NAUSEA_SPEED
+
+	if not isFading then
+		local pulse = (math.sin(timeElapsed * 1.8) + 1) * 0.5
+		colorCorrection.Brightness = -1.0 + (pulse * 0.5)
+	end
+
+	colorCorrection.Contrast = 0.15 + (math.sin(timeElapsed * 1.5) * 0.2 * intensity)
+
+	if camera then
+		local rollRad = math.rad(math.sin(timeElapsed) * ROLL_ANGLE * intensity)
+		camera.CFrame = camera.CFrame * CFrame.Angles(0, 0, rollRad)
+		camera.FieldOfView = DEFAULT_FOV + (math.sin(timeElapsed * 0.8) * FOV_AMPLITUDE * intensity)
+	end
+end)
+
+task.delay(12, function()
+	isFading = true
+	local FADE_DURATION = 2.5
+
+	local tweenInfo = TweenInfo.new(FADE_DURATION, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+	local colorTween = TweenService:Create(colorCorrection, tweenInfo, {
+		Brightness = 0,
+		Contrast = 0,
+		Saturation = 0,
+		TintColor = Color3.fromRGB(255, 255, 255),
+	})
+	colorTween:Play()
+
+	local rumbleTween = TweenService:Create(Rumble, tweenInfo, { Volume = 0 })
+	local screams2Tween = TweenService:Create(screams2, tweenInfo, { Volume = 0 })
+	local moreScreamingTween = TweenService:Create(MoreScreaming, tweenInfo, { Volume = 0 })
+	local farMoreScreamingTween = TweenService:Create(FarMoreScreaming, tweenInfo, { Volume = 0 })
+	local rumblingAgainTween = TweenService:Create(RumblingAgain, tweenInfo, { Volume = 0 })
+
+	rumbleTween:Play()
+	screams2Tween:Play()
+	moreScreamingTween:Play()
+	farMoreScreamingTween:Play()
+	rumblingAgainTween:Play()
+
+	local fadeStart = os.clock()
+	local taperConn: RBXScriptConnection? = nil
+
+	taperConn = RunService.Heartbeat:Connect(function()
+		local elapsed = os.clock() - fadeStart
+		local alpha = math.clamp(elapsed / FADE_DURATION, 0, 1)
+		intensity = 1 - alpha
+
+		if alpha >= 1 then
+			if taperConn then
+				taperConn:Disconnect()
+				taperConn = nil
+			end
+		end
+	end)
+
+	colorTween.Completed:Connect(function()
+		if renderConn then
+			renderConn:Disconnect()
+			renderConn = nil
+		end
+		if camera then
+			camera.FieldOfView = DEFAULT_FOV
+		end
+		colorCorrection:Destroy()
+		Rumble:Destroy()
+		screams2:Destroy()
+		MoreScreaming:Destroy()
+		FarMoreScreaming:Destroy()
+		RumblingAgain:Destroy()
+	end)
+end)
